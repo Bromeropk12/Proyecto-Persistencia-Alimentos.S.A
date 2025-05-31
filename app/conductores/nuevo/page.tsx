@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 "use client"
 
 import type React from "react"
@@ -19,7 +21,15 @@ import { ArrowLeft, UserCheck } from "lucide-react"
 import Link from "next/link"
 
 export default function NuevoConductorPage() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    identificacion: string;
+    nombres: string;
+    apellidos: string;
+    telefono: string;
+    direccion: string;
+    fecha_ingreso: string;
+    id_ruta: string | null;
+  }>({
     identificacion: "",
     nombres: "",
     apellidos: "",
