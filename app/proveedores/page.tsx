@@ -1,110 +1,188 @@
-export const dynamic = "force-dynamic";
+"use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
-import { Plus, Edit, Trash2, Building2 } from "lucide-react"
+import { Building2, Plus, Edit, Trash2 } from "lucide-react"
 import Link from "next/link"
 
-async function getProveedores() {
-  const { data, error } = await supabase.from("proveedor").select("*").order("nombre")
-
-  if (error) {
-    console.error("Error fetching proveedores:", error)
-    return []
-  }
-  return data || []
+interface Proveedor {
+  id_proveedor: number
+  identificacion: string
+  nombre: string
+  telefono: string
+  direccion: string
+  activo: boolean
 }
 
-export default async function ProveedoresPage() {
-  const proveedores = await getProveedores()
+export default function ProveedoresPage() {
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    loadProveedores()
+  }, [])
+
+  async function loadProveedores() {
+    try {
+      const { data, error } = await supabase.from("proveedor").select("*").order("nombre")
+      if (error) throw error
+      setProveedores(data)
+    } catch (error: any) {
+      console.error("Error loading proveedores:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los proveedores",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: number) => {
+    try {
+      // Verificar si el proveedor tiene productos
+      const { data: productos, error: checkError } = await supabase
+        .from("producto")
+        .select("id_producto")
+        .eq("id_proveedor", id)
+        .limit(1)
+
+      if (checkError) throw checkError
+
+      if (productos && productos.length > 0) {
+        throw new Error("El proveedor tiene productos asociados y no puede ser eliminado")
+      }
+
+      const { error } = await supabase.from("proveedor").delete().eq("id_proveedor", id)
+
+      if (error) throw error
+
+      toast({
+        title: "Proveedor eliminado",
+        description: "El proveedor se ha eliminado exitosamente",
+      })
+
+      setProveedores(proveedores.filter((p) => p.id_proveedor !== id))
+    } catch (error: any) {
+      console.error("Error deleting proveedor:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar el proveedor",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen w-full flex-col bg-muted/40">
+        <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
+          <div className="p-4">Cargando proveedores...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Proveedores</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto">
-          <Link href="/proveedores/nuevo">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Proveedor
-            </Button>
-          </Link>
-        </div>
-      </header>
+    <div className="flex min-h-screen w-full flex-col bg-muted/40">
+      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">          <div className="flex flex-1 items-center justify-between">
+            <h1 className="text-lg font-semibold md:text-2xl">Gestión de Proveedores</h1>
+            <Link href="/proveedores/nuevo">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Proveedor
+              </Button>
+            </Link>
+          </div>
+        </header>
 
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Building2 className="h-8 w-8" />
-            Gestión de Proveedores
-          </h1>
-          <p className="text-muted-foreground">Administra los proveedores de productos para la empresa</p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Proveedores Registrados ({proveedores.length})</CardTitle>
-            <CardDescription>Lista completa de proveedores en el sistema</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>NIT</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Persona de Contacto</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Dirección</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {proveedores.map((proveedor) => (
-                  <TableRow key={proveedor.id_proveedor}>
-                    <TableCell className="font-medium">{proveedor.nit}</TableCell>
-                    <TableCell>{proveedor.nombre}</TableCell>
-                    <TableCell>{proveedor.persona_contacto}</TableCell>
-                    <TableCell>{proveedor.telefono}</TableCell>
-                    <TableCell className="max-w-xs truncate">{proveedor.direccion}</TableCell>
-                    <TableCell>
-                      <Badge variant={proveedor.activo ? "default" : "secondary"}>
-                        {proveedor.activo ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link href={`/proveedores/${proveedor.id_proveedor}/editar`}>
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+        <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Proveedores Registrados ({proveedores.length})</CardTitle>
+              <CardDescription>Administra los proveedores del sistema</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Identificación</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Dirección</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {proveedores.map((proveedor) => (
+                    <TableRow key={proveedor.id_proveedor}>
+                      <TableCell className="font-medium">{proveedor.identificacion}</TableCell>
+                      <TableCell>{proveedor.nombre}</TableCell>
+                      <TableCell>{proveedor.telefono}</TableCell>
+                      <TableCell className="max-w-xs truncate">{proveedor.direccion}</TableCell>
+                      <TableCell>
+                        <Badge variant={proveedor.activo ? "default" : "secondary"}>
+                          {proveedor.activo ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Link href={`/proveedores/${proveedor.id_proveedor}/editar`}>
+                            <Button variant="outline" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acción no se puede deshacer. El proveedor será eliminado permanentemente del sistema.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(proveedor.id_proveedor)}>
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </main>
       </div>
-    </>
+    </div>
   )
 }

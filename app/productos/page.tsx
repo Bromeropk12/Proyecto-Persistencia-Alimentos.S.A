@@ -1,14 +1,40 @@
+"use client"
+
 export const dynamic = "force-dynamic";
 
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
-import { Plus, Edit, Trash2, Package } from "lucide-react"
+import { Edit, Plus, Trash2, Package } from "lucide-react"
 import Link from "next/link"
+
+interface Producto {
+  id_producto: number
+  nombre: string
+  descripcion: string
+  precio_unitario: number
+  proveedor: {
+    nombre: string
+  } | null
+}
 
 async function getProductos() {
   const { data, error } = await supabase
@@ -26,8 +52,85 @@ async function getProductos() {
   return data || []
 }
 
-export default async function ProductosPage() {
-  const productos = await getProductos()
+export default function ProductosPage() {
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+  const router = useRouter()
+
+  useEffect(() => {
+    async function loadProductos() {
+      const { data, error } = await supabase
+        .from("producto")
+        .select(`
+          *,
+          proveedor:proveedor(nombre)
+        `)
+        .order("nombre")
+
+      if (error) {
+        console.error("Error fetching productos:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los productos",
+          variant: "destructive",
+        })
+        return
+      }
+      setProductos(data || [])
+      setLoading(false)
+    }
+
+    loadProductos()
+  }, [toast])
+
+  const handleDelete = async (id: number) => {
+    try {
+      // Verificar si el producto tiene detalles de venta asociados
+      const { data: detalles, error: detallesError } = await supabase
+        .from("detalle_venta")
+        .select("id_detalle")
+        .eq("id_producto", id)
+        .limit(1)
+
+      if (detallesError) throw detallesError
+
+      if (detalles && detalles.length > 0) {
+        toast({
+          title: "No se puede eliminar",
+          description: "El producto ha sido vendido anteriormente y no puede ser eliminado",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { error } = await supabase
+        .from("producto")
+        .delete()
+        .eq("id_producto", id)
+
+      if (error) throw error
+
+      toast({
+        title: "Producto eliminado",
+        description: "El producto se ha eliminado exitosamente",
+      })
+
+      // Actualizar la lista de productos
+      setProductos(productos.filter(producto => producto.id_producto !== id))
+    } catch (error: any) {
+      console.error("Error deleting producto:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar el producto",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (loading) {
+    return <div className="p-4">Cargando productos...</div>
+  }
 
   return (
     <>
@@ -90,9 +193,27 @@ export default async function ProductosPage() {
                             <Edit className="h-4 w-4" />
                           </Button>
                         </Link>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta acción no se puede deshacer. El producto será eliminado permanentemente del sistema.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(producto.id_producto)}>
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>

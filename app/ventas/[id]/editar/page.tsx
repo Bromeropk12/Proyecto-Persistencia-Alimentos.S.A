@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,7 +44,8 @@ interface DetalleVenta {
   subtotal: number
 }
 
-export default function EditarVentaPage({ params }: { params: { id: string } }) {
+export default function EditarVentaPage() {
+  const params = useParams() as { id: string };
   const [formData, setFormData] = useState({
     id_cliente: "",
     id_ruta: "",

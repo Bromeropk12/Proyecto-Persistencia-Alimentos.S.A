@@ -1,0 +1,15 @@
+-- Luego el trigger
+CREATE OR REPLACE TRIGGER trigger_cambio_costo_ruta
+AFTER UPDATE OF costo_actual ON public.ruta
+FOR EACH ROW
+EXECUTE FUNCTION public.registrar_cambio_costo_ruta();
+
+-- Finalmente la vista
+CREATE OR REPLACE VIEW public.vista_ciudades_registradas AS
+SELECT
+    c.id_ciudad,
+    c.nombre
+FROM
+    public.ciudad c
+ORDER BY
+    c.nombre ASC;

@@ -6,23 +6,43 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { supabase, type Ciudad } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase"
+import type { Ciudad } from "@/lib/types"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
+interface Ruta {
+  id_ruta: number
+  nombre: string
+  id_ciudad_origen: number
+  id_ciudad_destino: number
+  fecha_apertura: string
+  costo_actual: number
+  estado: "ACTIVA" | "INACTIVA"
+}
+
+interface FormData {
+  nombre: string
+  ciudadOrigen: string
+  ciudadDestino: string
+  fechaApertura: string
+  costoActual: string
+}
+
 export default function NuevaRutaPage() {
-  const [nombre, setNombre] = useState("")
-  const [ciudadOrigen, setCiudadOrigen] = useState("")
-  const [ciudadDestino, setCiudadDestino] = useState("")
-  const [fechaApertura, setFechaApertura] = useState("")
-  const [costoActual, setCostoActual] = useState("")
+  const [formData, setFormData] = useState<FormData>({
+    nombre: "",
+    ciudadOrigen: "",
+    ciudadDestino: "",
+    fechaApertura: new Date().toISOString().split("T")[0],
+    costoActual: ""
+  })
   const [ciudades, setCiudades] = useState<Ciudad[]>([])
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -31,7 +51,6 @@ export default function NuevaRutaPage() {
   useEffect(() => {
     async function fetchCiudades() {
       const { data } = await supabase.from("ciudad").select("*").order("nombre")
-
       if (data) {
         setCiudades(data)
       }
@@ -39,21 +58,25 @@ export default function NuevaRutaPage() {
     fetchCiudades()
   }, [])
 
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const { error } = await supabase.from("ruta").insert([
-        {
-          nombre,
-          id_ciudad_origen: Number.parseInt(ciudadOrigen),
-          id_ciudad_destino: Number.parseInt(ciudadDestino),
-          fecha_apertura: fechaApertura,
-          costo_actual: Number.parseFloat(costoActual),
-          estado: "ACTIVA",
-        },
-      ])
+      const rutaData: Omit<Ruta, "id_ruta"> = {
+        nombre: formData.nombre,
+        id_ciudad_origen: Number.parseInt(formData.ciudadOrigen),
+        id_ciudad_destino: Number.parseInt(formData.ciudadDestino),
+        fecha_apertura: formData.fechaApertura,
+        costo_actual: Number.parseFloat(formData.costoActual),
+        estado: "ACTIVA"
+      }
+
+      const { error } = await supabase.from("ruta").insert([rutaData])
 
       if (error) {
         throw error
@@ -61,16 +84,16 @@ export default function NuevaRutaPage() {
 
       toast({
         title: "Ruta creada",
-        description: "La ruta se ha creado exitosamente.",
+        description: "La ruta se ha creado exitosamente."
       })
 
       router.push("/rutas")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating ruta:", error)
       toast({
         title: "Error",
-        description: "No se pudo crear la ruta. Inténtalo de nuevo.",
-        variant: "destructive",
+        description: error.message || "No se pudo crear la ruta. Inténtalo de nuevo.",
+        variant: "destructive"
       })
     } finally {
       setLoading(false)
@@ -80,8 +103,7 @@ export default function NuevaRutaPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-          <Sidebar />
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">          
           <div className="flex flex-1 items-center gap-4">
             <Link href="/rutas">
               <Button variant="outline" size="sm">
@@ -105,8 +127,8 @@ export default function NuevaRutaPage() {
                   <Input
                     id="nombre"
                     type="text"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
+                    value={formData.nombre}
+                    onChange={(e) => handleInputChange("nombre", e.target.value)}
                     placeholder="Ej: Ruta Bogotá-Medellín"
                     required
                   />
@@ -114,7 +136,11 @@ export default function NuevaRutaPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="ciudadOrigen">Ciudad de Origen</Label>
-                  <Select value={ciudadOrigen} onValueChange={setCiudadOrigen} required>
+                  <Select
+                    value={formData.ciudadOrigen}
+                    onValueChange={(value) => handleInputChange("ciudadOrigen", value)}
+                    required
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona ciudad de origen" />
                     </SelectTrigger>
@@ -130,7 +156,11 @@ export default function NuevaRutaPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="ciudadDestino">Ciudad de Destino</Label>
-                  <Select value={ciudadDestino} onValueChange={setCiudadDestino} required>
+                  <Select
+                    value={formData.ciudadDestino}
+                    onValueChange={(value) => handleInputChange("ciudadDestino", value)}
+                    required
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona ciudad de destino" />
                     </SelectTrigger>
@@ -149,8 +179,8 @@ export default function NuevaRutaPage() {
                   <Input
                     id="fechaApertura"
                     type="date"
-                    value={fechaApertura}
-                    onChange={(e) => setFechaApertura(e.target.value)}
+                    value={formData.fechaApertura}
+                    onChange={(e) => handleInputChange("fechaApertura", e.target.value)}
                     required
                   />
                 </div>
@@ -161,8 +191,8 @@ export default function NuevaRutaPage() {
                     id="costoActual"
                     type="number"
                     step="0.01"
-                    value={costoActual}
-                    onChange={(e) => setCostoActual(e.target.value)}
+                    value={formData.costoActual}
+                    onChange={(e) => handleInputChange("costoActual", e.target.value)}
                     placeholder="150000.00"
                     required
                   />

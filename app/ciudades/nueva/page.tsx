@@ -3,10 +3,8 @@
 export const dynamic = "force-dynamic";
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,18 +14,22 @@ import { supabase } from "@/lib/supabase"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
+interface FormData {
+  nombre: string;
+}
+
 export default function NuevaCiudadPage() {
-  const [nombre, setNombre] = useState("")
+  const [formData, setFormData] = useState<FormData>({ nombre: "" })
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const { error } = await supabase.from("ciudad").insert([{ nombre }])
+      const { error } = await supabase.from("ciudad").insert([formData])
 
       if (error) {
         throw error
@@ -39,7 +41,7 @@ export default function NuevaCiudadPage() {
       })
 
       router.push("/ciudades")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating ciudad:", error)
       toast({
         title: "Error",
@@ -54,9 +56,7 @@ export default function NuevaCiudadPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-          <Sidebar />
-          <div className="flex flex-1 items-center gap-4">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">          <div className="flex flex-1 items-center gap-4">
             <Link href="/ciudades">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -79,8 +79,8 @@ export default function NuevaCiudadPage() {
                   <Input
                     id="nombre"
                     type="text"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
+                    value={formData.nombre}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                     placeholder="Ej: Bogotá"
                     required
                   />
