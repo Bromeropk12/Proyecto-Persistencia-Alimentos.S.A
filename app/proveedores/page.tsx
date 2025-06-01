@@ -23,7 +23,7 @@ import Link from "next/link"
 
 interface Proveedor {
   id_proveedor: number
-  identificacion: string
+  nit: string
   nombre: string
   telefono: string
   direccion: string
@@ -136,7 +136,7 @@ export default function ProveedoresPage() {
                 <TableBody>
                   {proveedores.map((proveedor) => (
                     <TableRow key={proveedor.id_proveedor}>
-                      <TableCell className="font-medium">{proveedor.identificacion}</TableCell>
+                      <TableCell className="font-medium">{proveedor.nit}</TableCell>
                       <TableCell>{proveedor.nombre}</TableCell>
                       <TableCell>{proveedor.telefono}</TableCell>
                       <TableCell className="max-w-xs truncate">{proveedor.direccion}</TableCell>
